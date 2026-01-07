@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Getting There — Listening + Exercises</title>
+<style>
+  body{
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    line-height: 1.5;
+    margin: 0;
+    background: #fff;
+  }
+  .app{
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 18px;
+  }
+  .card{
+    border: 1px solid #e3e3e3;
+    border-radius: 16px;
+    padding: 18px;
+    margin: 14px 0;
+  }
+  h1{ margin: 0 0 6px; font-size: 26px; }
+  .sub{ margin: 0 0 14px; opacity: .75; }
+
+  /* Audio */
+  audio{ width: 100%; margin: 10px 0 6px; }
+
+  /* Buttons */
+  .controls{ display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0 12px; align-items:center; }
+  button{
+    padding: 10px 14px;
+    font-size: 14px;
+    border-radius: 10px;
+    border: 1px solid #bbb;
+    background: #fff;
+    cursor: pointer;
+  }
+  button:hover{ background: #f6f6f6; }
+  .hidden{ display:none; }
+
+  /* Transcript */
+  .dialogueArea{ margin-top: 8px; }
+  .line{
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 200ms ease, transform 200ms ease;
+    margin: 4px 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .line.visible{ opacity: 1; transform: translateY(0); }
+  .line.past{ opacity: 0.6; }
+  .line.current{
+    opacity: 1;
+    padding-left: 10px;
+    border-left: 3px solid #ddd;
+  }
+  .speaker{ font-weight: 800; margin-right: 6px; }
+  .maria .speaker{ color: #1f4e79; }
+  .ali .speaker{ color: #6a1b9a; }
+
+  /* Kill “thin lines” inside transcript */
+  .dialogueArea, .dialogueArea *{
+    border-top: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+  .dialogueArea hr{ display:none !important; }
+
+  .note{ margin-top: 10px; font-size: 14px; opacity: .8; }
+
+  /* Exercises */
+  .prompt{ margin: 6px 0 12px; font-size: 16px; }
+  .options{ display:grid; gap:8px; margin-top:8px; }
+  label{ display:flex; gap:8px; align-items:flex-start; cursor:pointer; }
+
+  input[type="text"]{
+    width: 240px;
+    padding: 8px 10px;
+    border: 1px solid #bbb;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  .gap{
+    width: 160px;
+    padding: 8px 10px;
+    border: 1px solid #bbb;
+    border-radius: 10px;
+    font-size: 16px;
+    vertical-align: middle;
+  }
+
+  .feedback{
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    display: none;
+  }
+  .feedback.good{ border-color: #7cc47c; }
+  .feedback.bad{ border-color: #e07a7a; }
+
+  hr.sep{ border:none; border-top:1px dashed #eee; margin: 14px 0; }
+
+  .answers{ margin-top: 10px; font-size: 14px; }
+  .answers p{ margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+(() => {
+  const uid = "gt_" + Math.random().toString(16).slice(2);
+  const mp3 = "taxi-ride.mp3"; // ✅ file is in repo root
+
+  const dialogueLines = [
+    { t: 0.00,  speaker: "Maria", cls: "maria", text: "License plate number A647, that must be my Uber. Hello, are you my driver?" },
+    { t: 7.72,  speaker: "Ali",   cls: "ali",   text: "Hi. Yes, I’m Ali. Please get in. So you’re going to Greenpoint?" },
+    { t: 16.14, speaker: "Maria", cls: "maria", text: "Um, I think I’m going to… Manhattan? The address I gave is 1026 Manhattan Avenue. Isn’t that in Manhattan." },
+    { t: 27.06, speaker: "Ali",   cls: "ali",   text: "It must be your first time in New York. Where are you from?" },
+    { t: 32.90, speaker: "Maria", cls: "maria", text: "Russia. Yeah, my first time. So, we’re not going to Manhattan? We’re going to… Green pond?" },
+    { t: 42.67, speaker: "Ali",   cls: "ali",   text: "Greenpoint. It’s in Brooklyn." },
+    { t: 46.62, speaker: "Maria", cls: "maria", text: "Oh?! Is it far from Manhattan?" },
+    { t: 50.62, speaker: "Ali",   cls: "ali",   text: "Well, it’s a little hard to get to Manhattan from there. It’s a little bit, what’s the word?" },
+    { t: 58.15, speaker: "Maria", cls: "maria", text: "Remote?" },
+    { t: 60.02, speaker: "Ali",   cls: "ali",   text: "Yeah, a little remote. But it’s a very cool neighborhood. It's, you know, very busy with restaurants." },
+    { t: 72.42, speaker: "Maria", cls: "maria", text: "It’s got a good restaurant scene?" },
+    { t: 73.91, speaker: "Ali",   cls: "ali",   text: "Right. A good restaurant scene and a good nightlife scene as well. And you know, like lots of young people, it’s you know like…" },
+    { t: 83.37, speaker: "Maria", cls: "maria", text: "You mean it’s a lively neighborhood." },
+    { t: 86.36, speaker: "Ali",   cls: "ali",   text: "Yes, exactly: lively. Your English is really good." },
+    { t: 92.31, speaker: "Maria", cls: "maria", text: "Oh, thank you. I actually used to be an English teacher in Russia." },
+    { t: 98.17, speaker: "Ali",   cls: "ali",   text: "And I was a doctor in my home country (laughs) and now I drive a taxi in New York. What a life!" }
+  ];
+
+  const el = document.getElementById("app");
+  el.innerHTML = `
+    <h1>Getting There — Listening + Exercises</h1>
+    <p class="sub">Audio first, then optional transcript + quick checks.</p>
+
+    <!-- AUDIO + DIALOGUE -->
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:18px;">1) Listening</h2>
+      <p class="prompt"><strong>Press play.</strong> Click “Show dialogue” only if you want text support.</p>
+
+      <audio id="${uid}_audio" controls preload="metadata">
+        <source src="${mp3}" type="audio/mpeg" />
+        Your browser can’t play this audio.
+      </audio>
+
+      <div class="controls">
+        <button id="${uid}_show" type="button">Show dialogue</button>
+        <button id="${uid}_hide" type="button" class="hidden">Hide dialogue</button>
+        <button id="${uid}_full" type="button" class="hidden">Show full transcript</button>
+      </div>
+
+      <div id="${uid}_dlg" class="dialogueArea hidden" aria-live="polite"></div>
+      <div class="note">Tip: click a revealed line to jump to that moment.</div>
+    </div>
+<!-- EX1 (Listening comprehension) -->
+<div class="card">
+  <h2 style="margin:0 0 8px; font-size:18px;">1) Listening comprehension</h2>
+  <p class="prompt"><strong>What was the mistake that Maria made?</strong></p>
+
+  <div class="options">
+    <label>
+      <input type="radio" name="${uid}_mistake" value="a">
+      She went to the wrong taxi.
+    </label>
+    <label>
+      <input type="radio" name="${uid}_mistake" value="b">
+      She thought she was going to a natural green place, not a city.
+    </label>
+    <label>
+      <input type="radio" name="${uid}_mistake" value="c">
+      She thought she was going to Manhattan instead of Brooklyn.
+    </label>
+    <label>
+      <input type="radio" name="${uid}_mistake" value="d">
+      She couldn’t understand the name of the place the driver was saying.
+    </label>
+  </div>
+
+  <button id="${uid}_mistake_check" type="button" style="margin-top:14px;">
+    Check answer
+  </button>
+
+  <div id="${uid}_mistake_fb" class="feedback" aria-live="polite"></div>
+</div>
+
+    <!-- EX3 (best word) -->
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:18px;">2) Best word</h2>
+      <p class="prompt"><strong>What word best describes the Greenpoint neighborhood?</strong></p>
+      <div class="options">
+        <label><input type="radio" name="${uid}_best" value="lively"> lively</label>
+        <label><input type="radio" name="${uid}_best" value="scene"> scene</label>
+        <label><input type="radio" name="${uid}_best" value="nightlife"> nightlife</label>
+      </div>
+      <button id="${uid}_best_check" type="button" style="margin-top:14px;">Check answer</button>
+      <div id="${uid}_best_fb" class="feedback" aria-live="polite"></div>
+    </div>
+
+    <!-- EX4 (meaning) -->
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:18px;">3) Meaning check</h2>
+      <p class="prompt"><strong>Greenpoint is lively because…</strong></p>
+      <div class="options">
+        <label><input type="radio" name="${uid}_why" value="a"> so many people live there.</label>
+        <label><input type="radio" name="${uid}_why" value="b"> there’s lots of things to do for fun.</label>
+        <label><input type="radio" name="${uid}_why" value="c"> it’s far away from Manhattan.</label>
+      </div>
+      <button id="${uid}_why_check" type="button" style="margin-top:14px;">Check answer</button>
+      <div id="${uid}_why_fb" class="feedback" aria-live="polite"></div>
+    </div>
+
+    <!-- EX2 (collocation neighborhood) -->
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:18px;">4) Collocation: neighborhood</h2>
+      <p class="prompt"><strong>Look back at the script and find another word that collocates with <em>neighborhood</em>.</strong></p>
+      <div class="row">
+        <input id="${uid}_nb_in" type="text" placeholder="Type one word" autocomplete="off" />
+        <button id="${uid}_nb_check" type="button">Check answer</button>
+      </div>
+      <div id="${uid}_nb_fb" class="feedback" aria-live="polite"></div>
+    </div>
+
+    <!-- EX1 (one word fits all gaps) -->
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:18px;">5) One word fits all gaps</h2>
+      <p class="prompt"><strong>Find a word in the script that can fill in all of the gaps.</strong></p>
+
+      <p style="font-size:18px; margin:0;">
+        While Berlin might be best known for its music and club
+        <input class="gap ${uid}_gap" data-i="1" autocomplete="off" spellcheck="false" />,
+        its food
+        <input class="gap ${uid}_gap" data-i="2" autocomplete="off" spellcheck="false" />
+        is less well-known. However, Berlin’s restaurant
+        <input class="gap ${uid}_gap" data-i="3" autocomplete="off" spellcheck="false" />
+        is not limited to beer and bratwurst.
+      </p>
+
+      <div class="controls" style="margin-top:14px;">
+        <button id="${uid}_gap_check" type="button">Check</button>
+        <button id="${uid}_gap_reset" type="button">Reset</button>
+        <button id="${uid}_gap_reveal" type="button">Reveal</button>
+      </div>
+
+      <div id="${uid}_gap_fb" class="feedback" aria-live="polite"></div>
+    </div>
+
+    <!-- EX5 (collocations) -->
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:18px;">6) Build collocations</h2>
+      <p class="prompt"><strong>Think of three other collocations with each of the following words.</strong></p>
+
+      <p style="margin:0 0 6px;"><strong>A lively</strong> …</p>
+      <div class="row">
+        <input data-group="lively" placeholder="1" autocomplete="off" />
+        <input data-group="lively" placeholder="2" autocomplete="off" />
+        <input data-group="lively" placeholder="3" autocomplete="off" />
+      </div>
+
+      <hr class="sep" />
+
+      <p style="margin:0 0 6px;"><strong>A remote</strong> …</p>
+      <div class="row">
+        <input data-group="remote" placeholder="1" autocomplete="off" />
+        <input data-group="remote" placeholder="2" autocomplete="off" />
+        <input data-group="remote" placeholder="3" autocomplete="off" />
+      </div>
+
+      <hr class="sep" />
+
+      <p style="margin:0 0 6px;"><strong>… scene</strong></p>
+      <div class="row">
+        <input data-group="scene" placeholder="1" autocomplete="off" />
+        <input data-group="scene" placeholder="2" autocomplete="off" />
+        <input data-group="scene" placeholder="3" autocomplete="off" />
+      </div>
+
+      <div class="controls" style="margin-top:14px;">
+        <button id="${uid}_col_check" type="button">Check answers</button>
+        <button id="${uid}_col_reset" type="button">Reset</button>
+      </div>
+
+      <div id="${uid}_col_fb" class="feedback" aria-live="polite"></div>
+    </div>
+  `;
+
+  /* ---------------- Dialogue sync ---------------- */
+  const audio = document.getElementById(`${uid}_audio`);
+  const dlg = document.getElementById(`${uid}_dlg`);
+  const showBtn = document.getElementById(`${uid}_show`);
+  const hideBtn = document.getElementById(`${uid}_hide`);
+  const fullBtn = document.getElementById(`${uid}_full`);
+
+  let enabled = false;
+  let lastShown = -1;
+  let currentIdx = -1;
+
+  const nodes = dialogueLines.map(line => {
+    const div = document.createElement("div");
+    div.className = `line ${line.cls}`;
+    div.innerHTML = `<span class="speaker">${line.speaker}:</span><span>${line.text}</span>`;
+    div.addEventListener("click", () => { audio.currentTime = line.t; audio.play(); });
+    dlg.appendChild(div);
+    return div;
+  });
+
+  function clearStates(){
+    nodes.forEach(n => n.classList.remove("visible","past","current"));
+    lastShown = -1;
+    currentIdx = -1;
+  }
+
+  function setCurrent(idx){
+    if (currentIdx === idx) return;
+    if (currentIdx >= 0){
+      nodes[currentIdx].classList.remove("current");
+      nodes[currentIdx].classList.add("past");
+    }
+    currentIdx = idx;
+    nodes[currentIdx].classList.add("current","visible");
+    nodes[currentIdx].classList.remove("past");
+  }
+
+  function revealUpTo(t){
+    if (!enabled) return;
+
+    while (lastShown + 1 < dialogueLines.length && dialogueLines[lastShown + 1].t <= t + 0.05){
+      lastShown++;
+      nodes[lastShown].classList.add("visible","past");
+      nodes[lastShown].classList.remove("current");
+    }
+
+    let idx = -1;
+    for (let i=0;i<dialogueLines.length;i++){
+      if (dialogueLines[i].t <= t + 0.05) idx = i;
+      else break;
+    }
+    if (idx >= 0 && idx <= lastShown) setCurrent(idx);
+  }
+
+  audio.addEventListener("timeupdate", () => revealUpTo(audio.currentTime));
+  audio.addEventListener("seeked", () => { if (enabled) { clearStates(); revealUpTo(audio.currentTime); } });
+
+  showBtn.addEventListener("click", () => {
+    enabled = true;
+    dlg.classList.remove("hidden");
+    showBtn.classList.add("hidden");
+    hideBtn.classList.remove("hidden");
+    fullBtn.classList.remove("hidden");
+    clearStates();
+    revealUpTo(audio.currentTime);
+  });
+
+  hideBtn.addEventListener("click", () => {
+    enabled = false;
+    dlg.classList.add("hidden");
+    showBtn.classList.remove("hidden");
+    hideBtn.classList.add("hidden");
+    fullBtn.classList.add("hidden");
+    clearStates();
+  });
+
+  fullBtn.addEventListener("click", () => {
+    if (!enabled) return;
+    nodes.forEach(n => { n.classList.add("visible","past"); n.classList.remove("current"); });
+    lastShown = nodes.length - 1;
+    currentIdx = -1;
+  });
+/* ---------------- Exercise 1: Listening comprehension ---------------- */
+const mistakeFb = document.getElementById(`${uid}_mistake_fb`);
+
+document
+  .getElementById(`${uid}_mistake_check`)
+  .addEventListener("click", () => {
+
+    const sel = document.querySelector(
+      `input[name="${uid}_mistake"]:checked`
+    );
+
+    mistakeFb.style.display = "block";
+
+    if (!sel) {
+      mistakeFb.className = "feedback bad";
+      mistakeFb.textContent = "Choose one option first 🙂";
+      return;
+    }
+
+    if (sel.value === "c") {
+      mistakeFb.className = "feedback good";
+      mistakeFb.textContent =
+        "✅ Correct! She thought she was going to Manhattan instead of Brooklyn.";
+    } else {
+      mistakeFb.className = "feedback bad";
+      mistakeFb.innerHTML = `
+        ❌ Not quite.
+        <div class="note">
+          Maria assumed the address was in Manhattan, but the driver explains
+          that Greenpoint is in Brooklyn.
+        </div>
+      `;
+    }
+});
+
+  /* ---------------- Exercise: Best word (lively) ---------------- */
+  const bestFb = document.getElementById(`${uid}_best_fb`);
+  document.getElementById(`${uid}_best_check`).addEventListener("click", () => {
+    const sel = document.querySelector(`input[name="${uid}_best"]:checked`);
+    bestFb.style.display = "block";
+    if (!sel){
+      bestFb.className = "feedback bad";
+      bestFb.textContent = "Choose one option first 🙂";
+      return;
+    }
+    if (sel.value === "lively"){
+      bestFb.className = "feedback good";
+      bestFb.textContent = "✅ Correct!";
+    } else {
+      bestFb.className = "feedback bad";
+      bestFb.innerHTML = `❌ Not quite.<div class="note">Correct answer: <strong>lively</strong></div>`;
+    }
+  });
+
+  /* ---------------- Exercise: Meaning (b) ---------------- */
+  const whyFb = document.getElementById(`${uid}_why_fb`);
+  document.getElementById(`${uid}_why_check`).addEventListener("click", () => {
+    const sel = document.querySelector(`input[name="${uid}_why"]:checked`);
+    whyFb.style.display = "block";
+    if (!sel){
+      whyFb.className = "feedback bad";
+      whyFb.textContent = "Choose one option first 🙂";
+      return;
+    }
+    if (sel.value === "b"){
+      whyFb.className = "feedback good";
+      whyFb.textContent = "✅ Correct!";
+    } else {
+      whyFb.className = "feedback bad";
+      whyFb.innerHTML = `❌ Not quite.<div class="note">Correct answer: <strong>there’s lots of things to do for fun.</strong></div>`;
+    }
+  });
+
+  /* ---------------- Exercise: neighborhood collocation (remote/cool) ---------------- */
+  const nbIn = document.getElementById(`${uid}_nb_in`);
+  const nbFb = document.getElementById(`${uid}_nb_fb`);
+  const nbAccept = ["remote","cool"];
+  const norm = s => (s||"").trim().toLowerCase().replace(/\s+/g," ");
+  document.getElementById(`${uid}_nb_check`).addEventListener("click", () => {
+    const user = norm(nbIn.value);
+    nbFb.style.display = "block";
+    if (!user){
+      nbFb.className = "feedback bad";
+      nbFb.textContent = "Type one word first 🙂";
+      nbIn.style.borderColor = "#e07a7a";
+      return;
+    }
+    if (nbAccept.includes(user)){
+      nbIn.style.borderColor = "#7cc47c";
+      const other = nbAccept.find(x => x !== user);
+      nbFb.className = "feedback good";
+      nbFb.innerHTML = `✅ Correct!<div class="note"><strong>${other}</strong> would also be correct.</div>`;
+    } else {
+      nbIn.style.borderColor = "#e07a7a";
+      nbFb.className = "feedback bad";
+      nbFb.innerHTML = `❌ Not quite.<div class="note">Acceptable answers: <strong>remote</strong>, <strong>cool</strong></div>`;
+    }
+  });
+
+  /* ---------------- Exercise: gaps (scene) ---------------- */
+  const CORRECT = "scene";
+  const gaps = Array.from(document.querySelectorAll(`.${uid}_gap`));
+  const gapFb = document.getElementById(`${uid}_gap_fb`);
+
+  function mirror(src){
+    const v = src.value;
+    gaps.forEach(g => { if (g !== src) g.value = v; g.style.borderColor = "#bbb"; });
+    gapFb.style.display = "none";
+    gapFb.className = "feedback";
+    gapFb.innerHTML = "";
+  }
+  gaps.forEach(g => g.addEventListener("input", () => mirror(g)));
+
+  document.getElementById(`${uid}_gap_check`).addEventListener("click", () => {
+    const user = norm(gaps[0].value);
+    gapFb.style.display = "block";
+    if (!user){
+      gapFb.className = "feedback bad";
+      gapFb.textContent = "Type one word first 🙂";
+      gaps.forEach(g => g.style.borderColor = "#e07a7a");
+      return;
+    }
+    if (user === CORRECT){
+      gapFb.className = "feedback good";
+      gapFb.innerHTML = `✅ Correct — <strong>scene</strong> fits all gaps.`;
+      gaps.forEach(g => g.style.borderColor = "#7cc47c");
+    } else {
+      gapFb.className = "feedback bad";
+      gapFb.textContent = "❌ Not quite. Try again.";
+      gaps.forEach(g => g.style.borderColor = "#e07a7a");
+    }
+  });
+
+  document.getElementById(`${uid}_gap_reset`).addEventListener("click", () => {
+    gaps.forEach(g => { g.value = ""; g.style.borderColor = "#bbb"; });
+    gapFb.style.display = "none";
+    gapFb.className = "feedback";
+    gapFb.innerHTML = "";
+    gaps[0].focus();
+  });
+
+  document.getElementById(`${uid}_gap_reveal`).addEventListener("click", () => {
+    gaps.forEach(g => { g.value = CORRECT; g.style.borderColor = "#7cc47c"; });
+    gapFb.style.display = "block";
+    gapFb.className = "feedback good";
+    gapFb.innerHTML = `Answer revealed: <strong>scene</strong> ✅`;
+  });
+
+  /* ---------------- Exercise: Collocations (accept a lot, show model) ---------------- */
+  const MODEL = {
+    lively: ["atmosphere","discussion","debate","city","crowd","neighborhood","neighbourhood","place","area","community","conversation","market","street","district","downtown","scene","hub","center","centre","restaurant","nightlife","bar","cafe","cafes","town"],
+    remote: ["area","location","village","neighborhood","neighbourhood","island","place","region","town","settlement","outpost","community","spot","corner","part","district"],
+    scene: ["music","art","food","club","restaurant","nightlife","bar","jazz","theater","theatre","cultural","creative","local","social","party","startup","start-up","tech","fashion","film","sports","punk","hip-hop","hiphop","indie","comedy"]
+  };
+
+  const colFb = document.getElementById(`${uid}_col_fb`);
+  const colInputs = Array.from(document.querySelectorAll('input[data-group]'));
+
+  function clean(s){
+    return (s||"").trim().toLowerCase()
+      .replace(/[.,!?;:()"]/g,"")
+      .replace(/\s+/g," ");
+  }
+  function singularize(w){
+    if (!w) return w;
+    if (w.endsWith("ies") && w.length>3) return w.slice(0,-3)+"y";
+    if (w.endsWith("s") && !w.endsWith("ss")) return w.slice(0,-1);
+    return w;
+  }
+  function headWord(group, phrase){
+    const parts = clean(phrase).split(" ").filter(Boolean);
+    if (!parts.length) return "";
+    // for "... scene" take first word; for "a lively/remote ..." take last word
+    return singularize(group==="scene" ? parts[0] : parts[parts.length-1]);
+  }
+
+  function renderModel(){
+    return `
+      <div class="answers">
+        <p><strong>A lively (examples):</strong> ${MODEL.lively.slice(0,16).join(", ")}…</p>
+        <p><strong>A remote (examples):</strong> ${MODEL.remote.join(", ")}</p>
+        <p><strong>… scene (examples):</strong> ${MODEL.scene.slice(0,18).join(", ")}…</p>
+      </div>
+    `;
+  }
+
+  document.getElementById(`${uid}_col_check`).addEventListener("click", () => {
+    let modelHits = 0, acceptable = 0, blanks = 0;
+
+    colInputs.forEach(inp => {
+      const group = inp.dataset.group;
+      const val = clean(inp.value);
+      if (!val){ blanks++; inp.style.borderColor = "#bbb"; return; }
+
+      const head = headWord(group, val);
+      const inModel = (MODEL[group] || []).includes(head);
+
+      if (inModel){ modelHits++; inp.style.borderColor = "#7cc47c"; }
+      else { acceptable++; inp.style.borderColor = "#bbb"; }
+    });
+
+    colFb.style.display = "block";
+    if (modelHits > 0){
+      colFb.className = "feedback good";
+      colFb.innerHTML =
+        `✅ Model matches: <strong>${modelHits}</strong>` +
+        (acceptable>0 ? `<div class="note">Also acceptable (not in model list): <strong>${acceptable}</strong></div>` : "") +
+        renderModel();
+    } else if (acceptable > 0){
+      colFb.className = "feedback good";
+      colFb.innerHTML =
+        `✅ Your answers look acceptable for this productive task.` +
+        `<div class="note">They’re just not in the model list: <strong>${acceptable}</strong></div>` +
+        renderModel();
+    } else {
+      colFb.className = "feedback bad";
+      colFb.textContent = "Type something in the blanks first 🙂";
+    }
+  });
+
+  document.getElementById(`${uid}_col_reset`).addEventListener("click", () => {
+    colInputs.forEach(i => { i.value = ""; i.style.borderColor = "#bbb"; });
+    colFb.style.display = "none";
+    colFb.className = "feedback";
+    colFb.innerHTML = "";
+  });
+
+})();
+</script>
+</body>
+</html>
